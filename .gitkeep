@@ -1,0 +1,4 @@
+# This file keeps the checkpoints/ directory in git.
+# Actual .pth model files are excluded via .gitignore.
+# Download the pre-trained checkpoint from the Releases page:
+# https://github.com/Aranya2801/Dog-Cat-image-classification-project/releases
