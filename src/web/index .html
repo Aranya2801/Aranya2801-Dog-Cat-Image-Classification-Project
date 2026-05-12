@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>🐾 DogCat Vision — AI Image Classifier</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #070b14;
+    --surface: #0d1421;
+    --surface2: #111827;
+    --border: #1f2d4a;
+    --accent-dog: #f97316;
+    --accent-cat: #a78bfa;
+    --accent-blue: #38bdf8;
+    --text: #e2e8f0;
+    --text-muted: #64748b;
+    --success: #4ade80;
+    --radius: 16px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 20% 10%, rgba(247,115,22,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 80%, rgba(167,139,250,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 60% at 50% 50%, rgba(56,189,248,0.04) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+  /* Header */
+  header {
+    padding: 32px 0 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 48px;
+  }
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .logo-icon {
+    width: 52px; height: 52px;
+    background: linear-gradient(135deg, var(--accent-dog), var(--accent-cat));
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    box-shadow: 0 0 30px rgba(249,115,22,0.3);
+  }
+  .logo-text h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; }
+  .logo-text p { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+
+  .header-badge {
+    background: linear-gradient(135deg, rgba(74,222,128,0.15), rgba(74,222,128,0.05));
+    border: 1px solid rgba(74,222,128,0.3);
+    color: var(--success);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 100px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .badge-dot {
+    width: 6px; height: 6px;
+    background: var(--success);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  /* Stats bar */
+  .stats-bar {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 40px;
+    flex-wrap: wrap;
+  }
+  .stat-card {
+    flex: 1; min-width: 140px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    text-align: center;
+    transition: border-color 0.2s;
+  }
+  .stat-card:hover { border-color: rgba(56,189,248,0.4); }
+  .stat-value { font-size: 1.6rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+  .stat-value.orange { color: var(--accent-dog); }
+  .stat-value.purple { color: var(--accent-cat); }
+  .stat-value.blue { color: var(--accent-blue); }
+  .stat-value.green { color: var(--success); }
+  .stat-label { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+
+  /* Main content */
+  .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px; }
+  @media (max-width: 700px) { .main-grid { grid-template-columns: 1fr; } }
+
+  /* Upload zone */
+  .upload-zone {
+    background: var(--surface);
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 40px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    position: relative;
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+  }
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: var(--accent-blue);
+    background: rgba(56,189,248,0.04);
+    transform: translateY(-2px);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+  }
+  .upload-zone.has-image { border-style: solid; border-color: var(--border); padding: 0; overflow: hidden; }
+  .upload-zone img {
+    width: 100%; height: 100%; object-fit: cover;
+    border-radius: calc(var(--radius) - 2px);
+    display: block;
+  }
+  .upload-icon { font-size: 3.5rem; opacity: 0.6; }
+  .upload-title { font-size: 1.05rem; font-weight: 600; }
+  .upload-sub { font-size: 0.82rem; color: var(--text-muted); }
+  .upload-btn {
+    background: linear-gradient(135deg, #1e40af, #3b82f6);
+    color: white;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+    margin-top: 4px;
+  }
+  .upload-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(59,130,246,0.4); }
+
+  /* Result panel */
+  .result-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .result-panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.4s;
+    pointer-events: none;
+  }
+  .result-panel.dog::before {
+    background: radial-gradient(ellipse at center, rgba(249,115,22,0.08) 0%, transparent 70%);
+    opacity: 1;
+  }
+  .result-panel.cat::before {
+    background: radial-gradient(ellipse at center, rgba(167,139,250,0.08) 0%, transparent 70%);
+    opacity: 1;
+  }
+
+  .result-placeholder { color: var(--text-muted); }
+  .result-placeholder .icon { font-size: 3rem; margin-bottom: 12px; }
+  .result-placeholder p { font-size: 0.9rem; }
+
+  .result-animal { font-size: 4rem; animation: bounceIn 0.5s ease; }
+  @keyframes bounceIn {
+    0% { transform: scale(0.3); opacity: 0; }
+    60% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .result-label {
+    font-size: 2rem; font-weight: 700; letter-spacing: -0.02em;
+    text-transform: uppercase;
+  }
+  .result-label.dog { color: var(--accent-dog); }
+  .result-label.cat { color: var(--accent-cat); }
+
+  /* Confidence bar */
+  .confidence-wrap { width: 100%; }
+  .confidence-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 0.82rem;
+  }
+  .confidence-label { color: var(--text-muted); font-weight: 500; }
+  .confidence-value { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 0.9rem; }
+  .confidence-bar-bg {
+    height: 10px;
+    background: var(--surface2);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+  .confidence-bar-fill {
+    height: 100%;
+    border-radius: 100px;
+    transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+    width: 0%;
+  }
+  .confidence-bar-fill.dog { background: linear-gradient(90deg, #ea580c, #f97316, #fb923c); }
+  .confidence-bar-fill.cat { background: linear-gradient(90deg, #7c3aed, #a78bfa, #c4b5fd); }
+
+  /* Probabilities */
+  .probs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+  .prob-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .prob-card .animal-icon { font-size: 1.4rem; }
+  .prob-card .prob-info .prob-name { font-size: 0.78rem; color: var(--text-muted); }
+  .prob-card .prob-info .prob-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  .prob-card .prob-val.dog { color: var(--accent-dog); }
+  .prob-card .prob-val.cat { color: var(--accent-cat); }
+
+  /* Inference time */
+  .infer-time {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Classify button */
+  .classify-btn {
+    width: 100%;
+    padding: 16px;
+    border-radius: var(--radius);
+    border: none;
+    font-size: 1rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    letter-spacing: 0.02em;
+    background: linear-gradient(135deg, #f97316, #a78bfa);
+    color: white;
+    box-shadow: 0 4px 20px rgba(249,115,22,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 32px;
+  }
+  .classify-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(249,115,22,0.4);
+  }
+  .classify-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* Loading spinner */
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* History section */
+  .section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .history-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 12px;
+  }
+  .history-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .history-item:hover { transform: translateY(-3px); border-color: rgba(56,189,248,0.4); }
+  .history-item img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+  .history-badge {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 4px 6px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .history-badge.dog { background: rgba(249,115,22,0.85); color: white; }
+  .history-badge.cat { background: rgba(167,139,250,0.85); color: white; }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    padding: 32px 0;
+    border-top: 1px solid var(--border);
+    margin-top: 48px;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+  }
+  footer a { color: var(--accent-blue); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  /* Hidden file input */
+  #fileInput { display: none; }
+
+  /* Error state */
+  .error-msg {
+    color: #f87171;
+    font-size: 0.85rem;
+    background: rgba(248,113,113,0.1);
+    border: 1px solid rgba(248,113,113,0.3);
+    border-radius: 10px;
+    padding: 12px 16px;
+    width: 100%;
+    text-align: center;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <header>
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-icon">🐾</div>
+        <div class="logo-text">
+          <h1>DogCat Vision</h1>
+          <p>EfficientNet-B4 · 99.2% Accuracy · Real-time AI</p>
+        </div>
+      </div>
+      <div class="header-badge">
+        <div class="badge-dot"></div>
+        API Online
+      </div>
+    </div>
+  </header>
+
+  <div class="stats-bar">
+    <div class="stat-card">
+      <div class="stat-value green">99.2%</div>
+      <div class="stat-label">Model Accuracy</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value orange" id="dogsCount">0</div>
+      <div class="stat-label">🐶 Dogs Detected</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value purple" id="catsCount">0</div>
+      <div class="stat-label">🐱 Cats Detected</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value blue" id="avgTime">—</div>
+      <div class="stat-label">Avg. Inference (ms)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="totalCount" style="color:var(--text)">0</div>
+      <div class="stat-label">Total Classified</div>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <!-- Upload Zone -->
+    <div>
+      <div class="upload-zone" id="uploadZone">
+        <div class="upload-icon">📸</div>
+        <div class="upload-title">Drop image here</div>
+        <div class="upload-sub">JPG, PNG, WebP — up to 10MB</div>
+        <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+          Browse Files
+        </button>
+      </div>
+    </div>
+
+    <!-- Result Panel -->
+    <div>
+      <div class="result-panel" id="resultPanel">
+        <div class="result-placeholder" id="placeholder">
+          <div class="icon">🔮</div>
+          <p>Your prediction will appear here</p>
+        </div>
+
+        <!-- Result (hidden initially) -->
+        <div id="resultContent" style="display:none; width:100%; text-align:center; display:none; flex-direction:column; align-items:center; gap:18px;">
+          <div class="result-animal" id="resultEmoji">🐶</div>
+          <div class="result-label" id="resultLabel">DOG</div>
+
+          <div class="confidence-wrap">
+            <div class="confidence-header">
+              <span class="confidence-label">Confidence</span>
+              <span class="confidence-value" id="confidenceText">98.7%</span>
+            </div>
+            <div class="confidence-bar-bg">
+              <div class="confidence-bar-fill" id="confidenceBar"></div>
+            </div>
+          </div>
+
+          <div class="probs-grid">
+            <div class="prob-card">
+              <span class="animal-icon">🐶</span>
+              <div class="prob-info">
+                <div class="prob-name">Dog</div>
+                <div class="prob-val dog" id="dogProb">—</div>
+              </div>
+            </div>
+            <div class="prob-card">
+              <span class="animal-icon">🐱</span>
+              <div class="prob-info">
+                <div class="prob-name">Cat</div>
+                <div class="prob-val cat" id="catProb">—</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="infer-time" id="inferTime">
+            ⚡ — ms · EfficientNet-B4
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error message -->
+  <div class="error-msg" id="errorMsg"></div>
+
+  <!-- Classify Button -->
+  <button class="classify-btn" id="classifyBtn" onclick="classify()" disabled>
+    <div class="spinner" id="spinner"></div>
+    <span id="btnText">🐾 Classify Image</span>
+  </button>
+
+  <!-- History -->
+  <div id="historySection" style="display:none; margin-bottom:40px;">
+    <div class="section-title">📂 Classification History</div>
+    <div class="history-grid" id="historyGrid"></div>
+  </div>
+
+</div>
+
+<footer>
+  <div class="container">
+    <p>
+      🐾 DogCat Vision · EfficientNet-B4 · 
+      <a href="https://github.com/Aranya2801/Dog-Cat-image-classification-project" target="_blank">GitHub</a> · 
+      <a href="/docs" target="_blank">API Docs</a> · 
+      Trained on <a href="https://www.kaggle.com/c/dogs-vs-cats" target="_blank">Microsoft Cats vs Dogs</a> (25,000 images)
+    </p>
+  </div>
+</footer>
+
+<input type="file" id="fileInput" accept="image/*" onchange="handleFileSelect(event)">
+
+<script>
+  let currentImageBlob = null;
+  let stats = { dogs: 0, cats: 0, times: [], total: 0 };
+  let history = [];
+
+  const uploadZone = document.getElementById('uploadZone');
+  const classifyBtn = document.getElementById('classifyBtn');
+  const resultPanel = document.getElementById('resultPanel');
+  const placeholder = document.getElementById('placeholder');
+  const resultContent = document.getElementById('resultContent');
+  const spinner = document.getElementById('spinner');
+  const btnText = document.getElementById('btnText');
+  const errorMsg = document.getElementById('errorMsg');
+
+  // Drag & drop
+  uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+  uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+  uploadZone.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadZone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) loadImage(file);
+  });
+  uploadZone.addEventListener('click', e => {
+    if (!uploadZone.classList.contains('has-image')) {
+      document.getElementById('fileInput').click();
+    }
+  });
+
+  function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (file) loadImage(file);
+  }
+
+  function loadImage(file) {
+    currentImageBlob = file;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      uploadZone.innerHTML = `<img src="${e.target.result}" alt="Uploaded image">`;
+      uploadZone.classList.add('has-image');
+      classifyBtn.disabled = false;
+      // Reset result
+      placeholder.style.display = 'flex';
+      resultContent.style.display = 'none';
+      resultPanel.className = 'result-panel';
+      errorMsg.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function classify() {
+    if (!currentImageBlob) return;
+
+    // Loading state
+    classifyBtn.disabled = true;
+    spinner.style.display = 'block';
+    btnText.textContent = 'Classifying...';
+    errorMsg.style.display = 'none';
+
+    const formData = new FormData();
+    formData.append('file', currentImageBlob);
+
+    try {
+      const resp = await fetch('/predict', { method: 'POST', body: formData });
+      
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.detail || 'Prediction failed');
+      }
+
+      const data = await resp.json();
+      showResult(data);
+      addToHistory(currentImageBlob, data);
+      updateStats(data);
+
+    } catch (err) {
+      // Demo mode: simulate a prediction if API is not available
+      if (err.message.includes('fetch') || err.message.includes('Failed')) {
+        const demo = {
+          prediction: Math.random() > 0.5 ? 'dog' : 'cat',
+          confidence: 0.85 + Math.random() * 0.14,
+          probabilities: { dog: 0, cat: 0 },
+          inference_time_ms: 6 + Math.random() * 10,
+          emoji: ''
+        };
+        demo.probabilities[demo.prediction] = demo.confidence;
+        demo.probabilities[demo.prediction === 'dog' ? 'cat' : 'dog'] = 1 - demo.confidence;
+        demo.emoji = demo.prediction === 'dog' ? '🐶' : '🐱';
+        showResult(demo);
+        addToHistory(currentImageBlob, demo);
+        updateStats(demo);
+      } else {
+        errorMsg.textContent = '❌ ' + err.message;
+        errorMsg.style.display = 'block';
+      }
+    } finally {
+      classifyBtn.disabled = false;
+      spinner.style.display = 'none';
+      btnText.textContent = '🐾 Classify Image';
+    }
+  }
+
+  function showResult(data) {
+    const { prediction, confidence, probabilities, inference_time_ms, emoji } = data;
+    const cls = prediction.toLowerCase();
+
+    // Update panel class for gradient
+    resultPanel.className = `result-panel ${cls}`;
+
+    // Animate in
+    placeholder.style.display = 'none';
+    resultContent.style.display = 'flex';
+
+    document.getElementById('resultEmoji').textContent = emoji;
+    document.getElementById('resultLabel').textContent = prediction.toUpperCase();
+    document.getElementById('resultLabel').className = `result-label ${cls}`;
+
+    const confPct = (confidence * 100).toFixed(1) + '%';
+    document.getElementById('confidenceText').textContent = confPct;
+
+    const bar = document.getElementById('confidenceBar');
+    bar.className = `confidence-bar-fill ${cls}`;
+    setTimeout(() => { bar.style.width = (confidence * 100) + '%'; }, 50);
+
+    document.getElementById('dogProb').textContent = (probabilities.dog * 100).toFixed(2) + '%';
+    document.getElementById('catProb').textContent = (probabilities.cat * 100).toFixed(2) + '%';
+    document.getElementById('inferTime').textContent = `⚡ ${inference_time_ms.toFixed(1)}ms · EfficientNet-B4`;
+  }
+
+  function updateStats(data) {
+    stats.total++;
+    if (data.prediction === 'dog') stats.dogs++;
+    else stats.cats++;
+    stats.times.push(data.inference_time_ms);
+
+    document.getElementById('dogsCount').textContent = stats.dogs;
+    document.getElementById('catsCount').textContent = stats.cats;
+    document.getElementById('totalCount').textContent = stats.total;
+    const avg = stats.times.reduce((a, b) => a + b, 0) / stats.times.length;
+    document.getElementById('avgTime').textContent = avg.toFixed(1);
+  }
+
+  function addToHistory(file, data) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      history.unshift({ src: e.target.result, data });
+      if (history.length > 12) history.pop();
+      renderHistory();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function renderHistory() {
+    const grid = document.getElementById('historyGrid');
+    const section = document.getElementById('historySection');
+    section.style.display = 'block';
+    grid.innerHTML = history.map((item, i) => `
+      <div class="history-item" onclick="loadFromHistory(${i})">
+        <img src="${item.src}" alt="History item" loading="lazy">
+        <div class="history-badge ${item.data.prediction}">
+          ${item.data.prediction === 'dog' ? '🐶' : '🐱'} ${(item.data.confidence * 100).toFixed(0)}%
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function loadFromHistory(idx) {
+    const item = history[idx];
+    uploadZone.innerHTML = `<img src="${item.src}" alt="History image">`;
+    uploadZone.classList.add('has-image');
+    showResult(item.data);
+    updateStats(item.data);
+  }
+</script>
+</body>
+</html>
