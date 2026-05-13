@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/images/banner.svg" alt="Dog Cat Classifier Banner" width="100%"/>
+<img src="assets / images" alt="Dog Cat Classifier Banner" width="100%"/>
 
 # 🐾 DogCat Vision — Advanced Image Classification System
 
