@@ -1,0 +1,45 @@
+schema: '2.0'
+
+stages:
+  download_data:
+    cmd: python scripts/download_dataset.py --method huggingface --data-dir data
+    deps:
+      - scripts/download_dataset.py
+    outs:
+      - data/raw
+
+  prepare_data:
+    cmd: python scripts/prepare_data.py --data-dir data
+    deps:
+      - scripts/prepare_data.py
+      - data/raw
+    outs:
+      - data/processed
+
+  train:
+    cmd: python src/train.py --config configs/efficientnet_b4.yaml
+    deps:
+      - src/train.py
+      - src/models/efficientnet.py
+      - src/utils/dataset.py
+      - src/utils/augmentations.py
+      - configs/efficientnet_b4.yaml
+      - data/processed
+    outs:
+      - checkpoints/best_model.pth
+    metrics:
+      - metrics/train_metrics.json:
+          cache: false
+
+  evaluate:
+    cmd: python src/evaluate.py --checkpoint checkpoints/best_model.pth --output evaluation
+    deps:
+      - src/evaluate.py
+      - checkpoints/best_model.pth
+      - data/processed/test
+    metrics:
+      - metrics/eval_metrics.json:
+          cache: false
+    plots:
+      - evaluation/confusion_matrix.png
+      - evaluation/roc_pr_curves.png
